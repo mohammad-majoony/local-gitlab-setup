@@ -31,6 +31,7 @@ services:
       - gitlab-in-docker
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab-runner-config:/etc/gitlab-runner
     restart: always
 
 networks:
@@ -41,3 +42,4 @@ networks:
 volumes:
   gitlab-config:
   gitlab-data:
+  gitlab-runner-config:
