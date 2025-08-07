@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+
+  gitlab-server:
+    image: 'gitlab/gitlab-ce:latest'
+    container_name: gitlab-server
+    environment:
+      GITLAB_ROOT_EMAIL: "admin@gmail.com"
+      GITLAB_ROOT_PASSWORD: "admin@gmail.com"
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab-server:80'
+        nginx['listen_port'] = 80
+        gitlab_rails['registry_enabled'] = true
+        registry_external_url 'http://gitlab-server:5001'
+      GITLAB_SHARED_RUNNERS_REGISTRATION_TOKEN: register
+    ports:
+      - '80:80'
+      - '5001:5001'
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-data:/var/opt/gitlab
+    networks:
+      - gitlab-in-docker
+    restart: always
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    networks:
+      - gitlab-in-docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+
+networks:
+  gitlab-in-docker:
+    name: gitlab-in-docker
+    driver: bridge
+
+volumes:
+  gitlab-config:
+  gitlab-data:
