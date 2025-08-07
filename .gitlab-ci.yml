@@ -1,0 +1,65 @@
+stages:
+  - build
+  - test
+  - image-build-push
+
+variables:
+  VENV_DIR: "$CI_PROJECT_DIR/venv"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  DOCKER_HOST: tcp://docker-dind:2375
+  DOCKER_TLS_CERTDIR: ""
+
+cache:
+  paths:
+    - .cache/pip/
+
+# --------------------------------------------------------------------------------
+
+build:
+  image: python:3.9-alpine
+  stage: build
+  script:
+    - echo 'nameserver 8.8.8.8' | tee /etc/resolv.conf
+    - python --version
+    - pip install --upgrade pip
+    - python -m venv $VENV_DIR
+    - source $VENV_DIR/bin/activate && pip install -r requirements.txt
+  artifacts:
+    paths:
+      - venv/
+    expire_in: 15 days
+
+# --------------------------------------------------------------------------------
+
+test:
+  image: python:3.9-alpine
+  stage: test
+  dependencies:
+    - build
+  script:
+    - source $VENV_DIR/bin/activate && python3 test.py 
+
+# --------------------------------------------------------------------------------
+
+image-build-push:
+  image: docker:20.10.24
+  stage: image-build-push
+  services:
+    - name: docker:20.10.24-dind
+      alias: docker-dind
+      command:
+        [
+          "--insecure-registry=gitlab-server:5001",
+          "--host=tcp://0.0.0.0:2375",
+          "--dns=8.8.8.8",
+          "--dns=1.1.1.1",
+          "--ipv6=false"
+        ]
+  variables:
+    DOCKER_HOST: tcp://docker-dind:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker pull "$CI_REGISTRY_IMAGE:latest" || true
+    - docker build --cache-from="$CI_REGISTRY_IMAGE:latest" -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker push "$CI_REGISTRY_IMAGE:latest"
